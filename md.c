@@ -10,6 +10,10 @@ int newton(int n_particles, double size, double *position, double *velocity, dou
 int last_step(int n_particles, double size, double *position, double *velocity, double *force);
 double kinetic_energy(int n_particles, double *velocity);
 
+extern void minimum_images(double size, const double *position, int i, int j, double *dr);
+
+void calculate_force(double *force, double *potential, double phicutoff, int i, int j, double *dr);
+
 int main(int argc, char** argv) {
   double *position, *velocity, *force;
   double size;
@@ -80,33 +84,41 @@ int newton(int n_particles, double size, double *position, double *velocity, dou
   for (int i = 0; i < n_particles; i++) {
     for (int j = i + 1; j < n_particles; j++) {
       double dr[3];
-      for (int k = 0; k < 3; k++) {
-        dr[k] = position[3*i+k] - position[3*j+k];
-        if (dr[k] > 0.5 * size)
-          dr[k] -= size;
-        else if (dr[k] < -0.5 * size)
-          dr[k] += size;
-      }
-      double distance = 0.0;
-      for (int k = 0; k < 3; k++) {
-        distance += dr[k] * dr[k];
-      }
-      if (distance < 2.5 * 2.5) {
-        double rm2 = 1.0/distance;
-        double rm6 = rm2 * rm2 * rm2;
-        double rm12 = rm6 * rm6;
-        double phi  = 4.0 * (rm12 - rm6);
-        double dphi = 24.0*rm2*(2.0*rm12 - rm6);
-        for (int k = 0; k < 3; k++) {
-          force[3*i+k] += dphi * dr[k];
-          force[3*i+k] -= dphi * dr[k];
-        }
-        *potential += phi - phicutoff;
-      }
+      minimum_images(size, position, i, j, dr);
+      calculate_force(force, potential, phicutoff, i, j, dr);
     }
   }
   return 0;
 }
+
+void calculate_force(double *force, double *potential, double phicutoff, int i, int j, double *dr) {
+  double distance = 0.0;
+  for (int k = 0; k < 3; k++) {
+    distance += dr[k] * dr[k];
+  }
+  if (distance < 2.5 * 2.5) {
+    double rm2 = 1.0/distance;
+    double rm6 = rm2 * rm2 * rm2;
+    double rm12 = rm6 * rm6;
+    double phi  = 4.0 * (rm12 - rm6);
+    double dphi = 24.0*rm2*(2.0*rm12 - rm6);
+    for (int k = 0; k < 3; k++) {
+      force[3*i+k] += dphi * dr[k];
+      force[3*j+k] -= dphi * dr[k];
+    }
+    *potential += phi - phicutoff;
+  }
+}
+//
+//void minimum_images(double size, const double *position, int i, int j, double *dr) {
+//  for (int k = 0; k < 3; k++) {
+//    dr[k] = position[3*i+k] - position[3*j+k];
+//    if (dr[k] > 0.5 * size)
+//      dr[k] -= size;
+//    else if (dr[k] < -0.5 * size)
+//      dr[k] += size;
+//  }
+//}
 
 int last_step(int n_particles, double size, double *position, double *velocity, double *force) {
   for (int i = 0; i < 3 * n_particles; i++) {
