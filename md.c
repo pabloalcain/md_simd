@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include "newton.h"
 #define TIMESTEP 0.0005
 
 int lattice(int n_particles, double size, double *position, double *velocity);
@@ -9,10 +10,7 @@ int first_step(int n_particles, double size, double *position, double *velocity,
 int newton(int n_particles, double size, double *position, double *velocity, double *force, double *potential);
 int last_step(int n_particles, double size, double *position, double *velocity, double *force);
 double kinetic_energy(int n_particles, double *velocity);
-
-extern void minimum_images(double size, const double *position, int i, int j, double *dr);
-
-void calculate_force(double *force, double *potential, double phicutoff, int i, int j, double *dr);
+extern void calculate_force(double *force, double *potential, double phicutoff, int i, int j, double *dr);
 
 int main(int argc, char** argv) {
   double *position, *velocity, *force;
@@ -20,8 +18,8 @@ int main(int argc, char** argv) {
   int n_particles;
   int n_steps;
   double potential, kinetic;
-  n_particles = 8;
-  n_steps = 100000;
+  n_particles = 27;
+  n_steps = 10000;
   size = 3.0;
   position = (double *)malloc(n_particles*3*sizeof(double));
   velocity = (double *)malloc(n_particles*3*sizeof(double));
@@ -35,15 +33,16 @@ int main(int argc, char** argv) {
     newton(n_particles, size, position, velocity, force, &potential);
     last_step(n_particles, size, position, velocity, force);
     kinetic = kinetic_energy(n_particles, velocity);
-    printf("%g, %g, %g\n", potential, kinetic, potential+kinetic);
+    //    printf("%g, %g, %g\n", potential, kinetic, potential+kinetic);
   }
 
   return 0;
 }
 
 int lattice(int n_particles, double size, double *position, double *velocity) {
-  srand(time(NULL));
-  int number_side = ceil(cbrt(n_particles));
+  //  srand(time(NULL));
+  srand(6000);
+ int number_side = ceil(cbrt(n_particles));
   double distance = size / number_side;
   int index_particle = 0;
   for (int i = 0; i < number_side; i++) {
@@ -83,12 +82,27 @@ int newton(int n_particles, double size, double *position, double *velocity, dou
     force[i] = 0.0;
   for (int i = 0; i < n_particles; i++) {
     for (int j = i + 1; j < n_particles; j++) {
-      double dr[3];
+      double dr[4]; // porque ymm escribe acá y no queremos que pise otras posiciones de memoria
       minimum_images(size, position, i, j, dr);
       calculate_force(force, potential, phicutoff, i, j, dr);
     }
   }
   return 0;
+}
+
+int last_step(int n_particles, double size, double *position, double *velocity, double *force) {
+  for (int i = 0; i < 3 * n_particles; i++) {
+    velocity[i] += force[i]/2 * TIMESTEP;
+  }
+  return 0;
+}
+
+double kinetic_energy(int n_particles, double *velocity) {
+  double kin = 0.0;
+  for (int i = 0; i < 3 * n_particles; i++) {
+    kin += velocity[i] * velocity[i] / 2;
+  }
+  return kin;
 }
 
 void calculate_force(double *force, double *potential, double phicutoff, int i, int j, double *dr) {
@@ -108,29 +122,4 @@ void calculate_force(double *force, double *potential, double phicutoff, int i, 
     }
     *potential += phi - phicutoff;
   }
-}
-//
-//void minimum_images(double size, const double *position, int i, int j, double *dr) {
-//  for (int k = 0; k < 3; k++) {
-//    dr[k] = position[3*i+k] - position[3*j+k];
-//    if (dr[k] > 0.5 * size)
-//      dr[k] -= size;
-//    else if (dr[k] < -0.5 * size)
-//      dr[k] += size;
-//  }
-//}
-
-int last_step(int n_particles, double size, double *position, double *velocity, double *force) {
-  for (int i = 0; i < 3 * n_particles; i++) {
-    velocity[i] += force[i]/2 * TIMESTEP;
-  }
-  return 0;
-}
-
-double kinetic_energy(int n_particles, double *velocity) {
-  double kin = 0.0;
-  for (int i = 0; i < 3 * n_particles; i++) {
-    kin += velocity[i] * velocity[i] / 2;
-  }
-  return kin;
 }
